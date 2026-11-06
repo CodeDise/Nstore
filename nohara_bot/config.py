@@ -33,11 +33,11 @@ MY_VALUES = {
     # MongoDB Atlas connection string, जैसे "mongodb+srv://user:pass@cluster0.xxxx.mongodb.net/?retryWrites=true&w=majority"
     "MONGO_URI": "",
     # कोई भी लंबा रैंडम टेक्स्ट (कम से कम 32, बेहतर 50 अक्षर, बिना space). एक बार भरकर कभी न बदलें!
-    "ENCRYPTION_KEY": "",
+    "ENCRYPTION_KEY": "7c2_example_encrypted_key_placeholder_to_replace_with_real_one",
     # आपकी Telegram user ID; एक से ज़्यादा हों तो कॉमा से अलग करें: "111,222"
-    "ADMIN_IDS": "",
+    "ADMIN_IDS": "7955232487",
     # (वैकल्पिक) master audit channel की ID, जैसे "-1001234567890". नहीं चाहिए तो "0"
-    "MASTER_AUDIT_CHANNEL_ID": "0",
+    "MASTER_AUDIT_CHANNEL_ID": "-1004396112942",
     # (वैकल्पिक) अपना custom domain हो तभी भरें, वरना खाली छोड़ दें (Render का URL अपने आप मिल जाता है)
     "APP_URL": "",
 
