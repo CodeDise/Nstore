@@ -1,0 +1,6 @@
+{
+  "name": "Nohara Store Bot — Multi-Tenant Telegram Store & Cloning Studio",
+  "description": "Production multi-tenant Telegram digital store & bot cloning platform with Dual-Layer Channel Storage, Native Colored Buttons API, Runtime Payment Gateways, 18-Language Localization, and full Hydrogram/Motor/aiohttp codebase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
