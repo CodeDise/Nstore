@@ -13,6 +13,52 @@ import os
 import sys
 from cryptography.fernet import Fernet, InvalidToken
 
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  ✏️  अपनी वैल्यू सिर्फ़ यहाँ भरें (FILL YOUR VALUES HERE — only inside the "")  ║
+# ║                                                                          ║
+# ║  Render के Environment में कुछ भरने की ज़रूरत नहीं।                         ║
+# ║  (अगर Render में कोई variable भरा होगा तो वो यहाँ की वैल्यू से ऊपर चलेगा।)    ║
+# ║                                                                          ║
+# ║  ⚠️  ज़रूरी: इस फ़ाइल में आपके secrets होंगे, इसलिए GitHub repo हमेशा         ║
+# ║      PRIVATE रखें। Public repo में रखा तो आपके बॉट टोकन, DB पासवर्ड और       ║
+# ║      keys कोई भी देख सकता है। इस फ़ाइल को किसी को न भेजें।                   ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+MY_VALUES = {
+    # my.telegram.org से (सिर्फ़ नंबर), जैसे "1234567"
+    "API_ID": "",
+    # my.telegram.org से
+    "API_HASH": "",
+    # @BotFather से master बॉट का टोकन, जैसे "123456789:AAH..."
+    "MASTER_BOT_TOKEN": "",
+    # MongoDB Atlas connection string, जैसे "mongodb+srv://user:pass@cluster0.xxxx.mongodb.net/?retryWrites=true&w=majority"
+    "MONGO_URI": "",
+    # कोई भी लंबा रैंडम टेक्स्ट (कम से कम 32, बेहतर 50 अक्षर, बिना space). एक बार भरकर कभी न बदलें!
+    "ENCRYPTION_KEY": "",
+    # आपकी Telegram user ID; एक से ज़्यादा हों तो कॉमा से अलग करें: "111,222"
+    "ADMIN_IDS": "",
+    # (वैकल्पिक) master audit channel की ID, जैसे "-1001234567890". नहीं चाहिए तो "0"
+    "MASTER_AUDIT_CHANNEL_ID": "0",
+    # (वैकल्पिक) अपना custom domain हो तभी भरें, वरना खाली छोड़ दें (Render का URL अपने आप मिल जाता है)
+    "APP_URL": "",
+
+    # ── वैकल्पिक सेटिंग (जैसी हैं वैसी छोड़ सकते हैं) ──
+    "DEFAULT_LANGUAGE": "en",
+    "DEFAULT_FONT_STYLE": "default_html",
+    "DEFAULT_USD_TO_INR": "88.0",
+    "MAX_CLONES_PER_USER": "3",
+    "MAX_CLONES_TOTAL": "15",
+    "BUTTON_COLORS": "true",
+    "OXAPAY_SANDBOX": "false",  # टेस्ट के लिए "true", असली पेमेंट के लिए "false"
+}
+
+
+def _env(name: str, default: str = "") -> str:
+    """Render Environment value if set, otherwise the value written in MY_VALUES above."""
+    value = os.environ.get(name, "").strip()
+    if value:
+        return value
+    return str(MY_VALUES.get(name, default) or default).strip()
+
 
 def _fail(message: str) -> None:
     sys.stderr.write(f"\n[CONFIG ERROR] {message}\n\n")
@@ -20,9 +66,9 @@ def _fail(message: str) -> None:
 
 
 def _required(name: str) -> str:
-    value = os.environ.get(name, "").strip()
+    value = _env(name)
     if not value:
-        _fail(f"Environment variable '{name}' is missing. See .env.example / SETUP.md")
+        _fail(f"'{name}' is empty. Fill it in nohara_bot/config.py (MY_VALUES at the top) or in Render -> Environment.")
     return value
 
 
@@ -36,7 +82,7 @@ def _required_int(name: str) -> int:
 
 
 def _optional_int(name: str, default: int) -> int:
-    raw = os.environ.get(name, "").strip()
+    raw = _env(name)
     if not raw:
         return default
     try:
@@ -47,7 +93,7 @@ def _optional_int(name: str, default: int) -> int:
 
 
 def _int_list(name: str) -> list:
-    raw = os.environ.get(name, "").strip()
+    raw = _env(name)
     result = []
     for part in raw.split(","):
         part = part.strip()
@@ -103,12 +149,12 @@ _FERNET = _build_fernet(_ENCRYPTION_KEY)
 # ───────────────────────── Web server ─────────────────────────
 PORT = _optional_int("PORT", 10000)
 # Public HTTPS URL of this service (Render sets RENDER_EXTERNAL_URL automatically).
-APP_URL = (os.environ.get("APP_URL") or os.environ.get("RENDER_EXTERNAL_URL") or "").strip().rstrip("/")
+APP_URL = (_env("APP_URL") or os.environ.get("RENDER_EXTERNAL_URL") or "").strip().rstrip("/")
 
 # ───────────────────────── Store defaults ─────────────────────────
-DEFAULT_LANGUAGE = os.environ.get("DEFAULT_LANGUAGE", "en").strip() or "en"
-DEFAULT_FONT_STYLE = os.environ.get("DEFAULT_FONT_STYLE", "default_html").strip() or "default_html"
-DEFAULT_USD_TO_INR = float(os.environ.get("DEFAULT_USD_TO_INR", "88.0") or 88.0)
+DEFAULT_LANGUAGE = _env("DEFAULT_LANGUAGE", "en") or "en"
+DEFAULT_FONT_STYLE = _env("DEFAULT_FONT_STYLE", "default_html") or "default_html"
+DEFAULT_USD_TO_INR = float(_env("DEFAULT_USD_TO_INR", "88.0") or 88.0)
 
 # Free Render instances have little RAM, so keep the number of running clones limited.
 MAX_CLONES_PER_USER = _optional_int("MAX_CLONES_PER_USER", 3)
@@ -116,10 +162,10 @@ MAX_CLONES_TOTAL = _optional_int("MAX_CLONES_TOTAL", 15)
 
 # Native Telegram coloured buttons (green / red / blue). Needs Telegram apps updated after
 # Feb 2026 to SHOW the colours; older apps show normal buttons. Set BUTTON_COLORS=false to disable.
-BUTTON_COLORS = os.environ.get("BUTTON_COLORS", "true").strip().lower() != "false"
+BUTTON_COLORS = _env("BUTTON_COLORS", "true").lower() != "false"
 
 # Set OXAPAY_SANDBOX=true while testing — invoices are created in OxaPay sandbox mode.
-OXAPAY_SANDBOX = os.environ.get("OXAPAY_SANDBOX", "false").strip().lower() == "true"
+OXAPAY_SANDBOX = _env("OXAPAY_SANDBOX", "false").lower() == "true"
 
 
 # ───────────────────────── Encryption helpers ─────────────────────────
