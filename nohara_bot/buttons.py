@@ -1,0 +1,129 @@
+"""
+NOHARA STORE BOT — Inline keyboards (nohara_bot/buttons.py)
+
+Keyboards are plain Bot-API dictionaries:  {"inline_keyboard": [[{...button...}, ...], ...]}
+
+NATIVE COLOURS (no emoji needed): a button can carry  "style": "primary" | "success" | "danger"
+  primary = blue   success = green   danger = red   default = Telegram's normal button colour
+The messages are delivered through the official Bot API (see botapi.py / services/core.py send_ui).
+Set BUTTON_COLORS=false in the environment to turn colours off.
+"""
+
+from typing import Any, Callable, Dict, List
+
+from nohara_bot.config import BUTTON_COLORS
+from nohara_bot.fonts import style_text
+from nohara_bot.i18n import LANGUAGES
+
+Button = Dict[str, Any]
+Markup = Dict[str, Any]
+
+
+def _btn(text: str, font: str, style: str = "default", callback: str = "", url: str = "") -> Button:
+    button: Button = {"text": style_text(text, font)[:64] or "•"}
+    if url:
+        button["url"] = url
+    else:
+        button["callback_data"] = callback
+    if BUTTON_COLORS and style in ("primary", "success", "danger"):
+        button["style"] = style
+    return button
+
+
+def _markup(rows: List[List[Button]]) -> Markup:
+    return {"inline_keyboard": rows}
+
+
+def main_menu(T: Callable[..., str], font: str, is_owner: bool = False) -> Markup:
+    rows = [
+        [_btn(T("btn_view_products"), font, "primary", "menu:products"), _btn(T("btn_wallet"), font, "success", "menu:wallet")],
+        [_btn("🌐 " + T("btn_change_lang"), font, "default", "menu:lang")],
+    ]
+    if is_owner:
+        rows.append([_btn(T("btn_open_dashboard"), font, "primary", "menu:dash")])
+    return _markup(rows)
+
+
+def products_keyboard(products: List[Dict], T: Callable[..., str], font: str, price_fmt: Callable[[int], str]) -> Markup:
+    rows = []
+    for p in products:
+        out = p["stock"] == 0
+        label = f"{p['title']} — {price_fmt(p['price_cents'])}" + (" ✖" if out else "")
+        rows.append([_btn(label, font, "danger" if out else "primary", f"prod:{p['_id']}")])
+    rows.append([_btn(T("btn_home"), font, "default", "menu:home")])
+    return _markup(rows)
+
+
+def product_keyboard(
+    product_id: str,
+    T: Callable[..., str],
+    font: str,
+    in_stock: bool,
+    oxapay_enabled: bool,
+    fampay_enabled: bool,
+) -> Markup:
+    if not in_stock:
+        return _markup([
+            [_btn(T("btn_out_of_stock"), font, "danger", "noop")],
+            [_btn(T("btn_view_products"), font, "primary", "menu:products")],
+        ])
+    rows = [[_btn(T("btn_pay_wallet"), font, "success", f"pay:wallet:{product_id}")]]
+    gateway_row = []
+    if oxapay_enabled:
+        gateway_row.append(_btn(T("btn_pay_oxapay"), font, "primary", f"pay:oxapay:{product_id}"))
+    if fampay_enabled:
+        gateway_row.append(_btn(T("btn_pay_fampay"), font, "primary", f"pay:fampay:{product_id}"))
+    if gateway_row:
+        rows.append(gateway_row)
+    rows.append([
+        _btn(T("btn_back"), font, "default", "menu:products"),
+        _btn(T("btn_cancel_order"), font, "danger", "menu:home"),
+    ])
+    return _markup(rows)
+
+
+def payment_link_keyboard(url: str, order_id: str, T: Callable[..., str], font: str) -> Markup:
+    return _markup([
+        [_btn(T("btn_open_payment"), font, "success", url=url)],
+        [_btn(T("btn_cancel_order"), font, "danger", f"cancel:{order_id}")],
+    ])
+
+
+def cancel_keyboard(order_id: str, T: Callable[..., str], font: str) -> Markup:
+    return _markup([[_btn(T("btn_cancel_order"), font, "danger", f"cancel:{order_id}")]])
+
+
+def back_keyboard(T: Callable[..., str], font: str) -> Markup:
+    return _markup([[_btn(T("btn_home"), font, "default", "menu:home")]])
+
+
+def language_keyboard(T: Callable[..., str], font: str) -> Markup:
+    rows: List[List[Button]] = []
+    row: List[Button] = []
+    for code, native in LANGUAGES:
+        # Native names are written as-is (no font styling) so every script stays readable.
+        row.append({"text": native, "callback_data": f"lang:{code}"})
+        if len(row) == 3:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
+    rows.append([_btn(T("btn_home"), font, "default", "menu:home")])
+    return _markup(rows)
+
+
+def fsub_keyboard(channels: List[Dict], T: Callable[..., str], font: str) -> Markup:
+    rows: List[List[Button]] = []
+    for ch in channels:
+        if ch.get("invite_link"):
+            rows.append([{"text": f"📢 {ch.get('title') or 'Channel'}"[:64], "url": ch["invite_link"]}])
+    rows.append([_btn(T("btn_joined"), font, "success", "fsub:check")])
+    return _markup(rows)
+
+
+def upi_review_keyboard(order_id: str) -> Markup:
+    """Shown to the STORE OWNER only (always English)."""
+    return _markup([[
+        _btn("Approve", "default_html", "success", f"upi:ok:{order_id}"),
+        _btn("Reject", "default_html", "danger", f"upi:no:{order_id}"),
+    ]])
