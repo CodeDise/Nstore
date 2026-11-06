@@ -1,0 +1,150 @@
+"""
+NOHARA STORE BOT — Shared helpers for all handlers: screens (show), banners, force-subscribe, owner guard.
+(nohara_bot/handlers/common.py)
+"""
+
+import html
+import logging
+from hydrogram import Client
+from hydrogram.enums import ChatMemberStatus
+from hydrogram.errors import UserNotParticipant
+from hydrogram.types import Message
+from typing import Any, Dict, List, Optional
+
+from nohara_bot.buttons import fsub_keyboard, main_menu
+from nohara_bot.config import ADMIN_IDS
+from nohara_bot.services.core import (
+    Ctx,
+    copy_ui,
+    get_ctx,
+    send_ui,
+)
+
+
+log = logging.getLogger("nohara.handlers.common")
+
+
+BANNER_FIELDS = {
+    "start": "start_photo_message_id",
+    "catalog": "catalog_photo_message_id",
+    "wallet": "wallet_photo_message_id",
+    "stock": "out_of_stock_photo_message_id",
+}
+BANNER_ALIASES = {
+    "welcome": "start", "home": "start",
+    "products": "catalog", "shop": "catalog", "store": "catalog",
+    "outofstock": "stock", "out_of_stock": "stock", "soldout": "stock",
+}
+
+
+def _banner_key(raw: str) -> Optional[str]:
+    key = (raw or "").strip().lower()
+    key = BANNER_ALIASES.get(key, key)
+    return key if key in BANNER_FIELDS else None
+
+
+# ═════════════════════════════════════════════════════════════════════
+#  Small helpers
+# ═════════════════════════════════════════════════════════════════════
+def _is_admin(user_id: int) -> bool:
+    return user_id in ADMIN_IDS
+
+
+def _is_owner(ctx: Ctx, user_id: int) -> bool:
+    return user_id == ctx.owner_id or _is_admin(user_id)
+
+
+def _args(message: Message) -> List[str]:
+    return message.command[1:] if message.command else []
+
+
+def _rest_of_text(message: Message) -> str:
+    raw = message.text or message.caption or ""
+    parts = raw.split(None, 1)
+    return parts[1].strip() if len(parts) > 1 else ""
+
+
+async def show(
+    client: Client,
+    ctx: Ctx,
+    chat_id: int,
+    text: str,
+    kb,
+    banner: Optional[str] = None,
+    replace: Optional[Message] = None,
+) -> None:
+    """Sends a fresh screen (optionally with the owner's banner photo) and removes the old one."""
+    if replace is not None:
+        try:
+            await replace.delete()
+        except Exception:
+            pass
+    field = BANNER_FIELDS.get(banner or "", "")
+    banner_msg_id = int((ctx.clone.get("ui_branding") or {}).get(field, 0)) if field else 0
+    if banner_msg_id and ctx.clone.get("db_channel_id") and len(text) <= 1000:
+        try:
+            await copy_ui(client, chat_id, int(ctx.clone["db_channel_id"]), banner_msg_id, text, kb)
+            return
+        except Exception as exc:
+            log.warning("Banner copy failed, sending text instead: %s", exc)
+    await send_ui(client, chat_id, text, kb)
+
+
+def welcome_text(ctx: Ctx) -> str:
+    subtitle = ctx.clone.get("welcome_msg") or ctx.T("welcome_subtitle")
+    return f"{ctx.H(ctx.T('welcome_title'))}\n\n{html.escape(subtitle)}"
+
+
+async def show_home(client: Client, ctx: Ctx, chat_id: int, user_id: int, replace: Optional[Message] = None) -> None:
+    kb = main_menu(ctx.T, ctx.font, _is_owner(ctx, user_id))
+    await show(client, ctx, chat_id, welcome_text(ctx), kb, "start", replace)
+
+
+# ═════════════════════════════════════════════════════════════════════
+#  Force-subscribe
+# ═════════════════════════════════════════════════════════════════════
+async def missing_fsub(client: Client, ctx: Ctx, user_id: int) -> List[Dict[str, Any]]:
+    if _is_owner(ctx, user_id):
+        return []
+    missing = []
+    for ch in ctx.clone.get("fsub_channels", []):
+        try:
+            member = await client.get_chat_member(ch["channel_id"], user_id)
+            if member.status in (ChatMemberStatus.LEFT, ChatMemberStatus.BANNED):
+                missing.append(ch)
+        except UserNotParticipant:
+            missing.append(ch)
+        except Exception as exc:
+            # Usually "bot is not admin in that channel" — do NOT lock every user out because of it.
+            log.warning("FSub check skipped for channel %s: %s", ch.get("channel_id"), exc)
+    return missing
+
+
+async def ensure_fsub(client: Client, ctx: Ctx, chat_id: int, user_id: int, replace: Optional[Message] = None) -> bool:
+    missing = await missing_fsub(client, ctx, user_id)
+    if not missing:
+        return True
+    await show(client, ctx, chat_id, ctx.T("fsub_required_msg"), fsub_keyboard(missing, ctx.T, ctx.font), replace=replace)
+    return False
+
+
+
+
+def owner_only(func):
+    async def wrapper(client: Client, message: Message) -> None:
+        if not message.from_user:
+            return
+        ctx = await get_ctx(client.nohara_bot_id, message.from_user.id)
+        if not ctx:
+            return
+        if not _is_owner(ctx, message.from_user.id):
+            await message.reply_text(ctx.T("owner_only"))
+            return
+        try:
+            await func(client, message, ctx)
+        except Exception:
+            log.exception("Owner command failed: %s", func.__name__)
+            await message.reply_text("⚠️ Something went wrong. Please check the server logs.")
+
+    wrapper.__name__ = func.__name__
+    return wrapper
