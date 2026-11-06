@@ -25,11 +25,11 @@ from cryptography.fernet import Fernet, InvalidToken
 # ╚══════════════════════════════════════════════════════════════════════════╝
 MY_VALUES = {
     # my.telegram.org से (सिर्फ़ नंबर), जैसे "1234567"
-    "API_ID": "",
+    "API_ID": "26944587",
     # my.telegram.org से
-    "API_HASH": "",
+    "API_HASH": "7261a455f2a6159b8a2fbfecd1a63004",
     # @BotFather से master बॉट का टोकन, जैसे "123456789:AAH..."
-    "MASTER_BOT_TOKEN": "",
+    "MASTER_BOT_TOKEN": "9052932129:AAFMH0ywKmvArMWiUnrVIsiLjf5gE27WN0c",
     # MongoDB Atlas connection string, जैसे "mongodb+srv://user:pass@cluster0.xxxx.mongodb.net/?retryWrites=true&w=majority"
     "MONGO_URI": "",
     # कोई भी लंबा रैंडम टेक्स्ट (कम से कम 32, बेहतर 50 अक्षर, बिना space). एक बार भरकर कभी न बदलें!
