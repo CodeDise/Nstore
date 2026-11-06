@@ -1,0 +1,27 @@
+# Render Blueprint — Nohara Store Bot (Free Web Service)
+# Secrets are NOT stored here: fill every "sync: false" value in the Render dashboard.
+services:
+  - type: web
+    name: nohara-store-multi-tenant-bot
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: API_ID
+        sync: false
+      - key: API_HASH
+        sync: false
+      - key: MASTER_BOT_TOKEN
+        sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: ADMIN_IDS
+        sync: false
+      - key: MASTER_AUDIT_CHANNEL_ID
+        sync: false
